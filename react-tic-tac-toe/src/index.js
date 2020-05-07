@@ -28,71 +28,19 @@ function Square(props) {
 }
 
 class Board extends React.Component {
-  // In JavaScript, always have to call "super" when defining the
-  // constructor of a subclass (this is a subclass of React.Component).
-  // React components with a constuctor should call super(props).
-  constructor(props) {
-    super(props);
-    this.state = {
-      squares: Array(9).fill(null),
-      xIsNext: true,
-    };
-  }
-
-  handleClick(i) {
-    // .slice() with no parameters creates a copy of squares instead of
-    // modifying the existing array. Why? Immutability.
-    // 1: Avoiding direct data mutation lets us record histories
-    // 2: Easier to detect changes. Don't have to scan each property
-    //   to look for changes.
-    // 3: MAIN BENEFIT: Lets you build PURE COMPONENTS in React -> FASTER.
-    //   Immutable data is easy to detect changes which makes React
-    //   faster.
-    const squares = this.state.squares.slice();
-
-    // Did someone already win the game? Is the square already filled?
-    // If so, do nothing.
-    if (calculateWinner(squares) || squares[i]) {
-      return;
-    }
-
-    // If it's X's turn, show an X, otherwise show an O.
-    squares[i] = this.state.xIsNext ? "X" : "O";
-
-    // Why not just save the values directly and skip setstate?
-    // Because setState queues changes and tells React to only re-render
-    // This component and its children. It's the primary way to update
-    // UIs in React.
-    this.setState({
-      squares: squares,
-      xIsNext: !this.state.xIsNext,
-    });
-  }
-
   renderSquare(i) {
     return (
       // The below is going to pass TWO values to Square's constructor.
       <Square
-        value={this.state.squares[i]}
-        onClick={() => this.handleClick(i)}
+        value={this.props.squares[i]}
+        onClick={() => this.props.onClick(i)}
       />
     );
   }
 
   render() {
-    const winner = calculateWinner(this.state.squares);
-    let status; // equivalent to var, but scope blocked. var is always global.
-    // null is truthy.
-    if (winner) {
-      status = "Winner: " + winner;
-    } else {
-      // Not sure why the parens are needed below, but they are. NBD.
-      const status = "Next player: " + (this.state.xIsNext ? "X" : "O");
-    }
-
     return (
       <div>
-        <div className="status">{status}</div>
         <div className="board-row">
           {this.renderSquare(0)}
           {this.renderSquare(1)}
@@ -114,15 +62,98 @@ class Board extends React.Component {
 }
 
 class Game extends React.Component {
+  // In JavaScript, always have to call "super" when defining the
+  // constructor of a subclass (this is a subclass of React.Component).
+  // React components with a constuctor should call super(props).
+  constructor(props) {
+    super(props);
+    this.state = {
+      history: [
+        {
+          squares: Array(9).fill(null),
+        },
+      ],
+      stepNumber: 0,
+      xIsNext: true,
+    };
+  }
+
+  handleClick(i) {
+    const history = this.state.history.slice(0, this.state.stepNumber + 1);
+    const current = history[history.length - 1];
+    // .slice() with no parameters creates a copy of squares instead of
+    // modifying the existing array. Why? Immutability.
+    // 1: Avoiding direct data mutation lets us record histories
+    // 2: Easier to detect changes. Don't have to scan each property
+    //   to look for changes.
+    // 3: MAIN BENEFIT: Lets you build PURE COMPONENTS in React -> FASTER.
+    //   Immutable data is easy to detect changes which makes React
+    //   faster.
+    const squares = current.squares.slice();
+
+    // Did someone already win the game? Is the square already filled?
+    // If so, do nothing.
+    if (calculateWinner(squares) || squares[i]) {
+      return;
+    }
+
+    // If it's X's turn, show an X, otherwise show an O.
+    squares[i] = this.state.xIsNext ? "X" : "O";
+
+    // Why not just save the values directly and skip setstate?
+    // Because setState queues changes and tells React to only re-render
+    // This component and its children. It's the primary way to update
+    // UIs in React.
+    this.setState({
+      history: history.concat([
+        {
+          squares: squares,
+        },
+      ]),
+      stepNumber: history.length,
+      xIsNext: !this.state.xIsNext,
+    });
+  }
+
+  jumpTo(step) {
+    this.setState({
+      stepNumber: step,
+      xIsNext: step % 2 === 0,
+    });
+  }
+
   render() {
+    const history = this.state.history;
+    const current = history[this.state.stepNumber];
+    const winner = calculateWinner(current.squares);
+
+    const moves = history.map((step, move) => {
+      const desc = move ? "Go to move #" + move : "Go to game start";
+      return (
+        <li key={move}>
+          <button onClick={() => this.jumpTo(move)}>{desc}</button>
+        </li>
+      );
+    });
+
+    let status;
+    if (winner) {
+      status = "Winner: " + winner;
+    } else {
+      status = "Next player: " + (this.state.xIsNext ? "X" : "O");
+    }
+
     return (
       <div className="game">
         <div className="game-board">
-          <Board />
+          <Board
+            squares={current.squares}
+            onClick={(i) => this.handleClick(i)}
+          />
         </div>
         <div className="game-info">
-          <div>{/* status */}</div>
-          <ol>{/* TODO */}</ol>
+          <div>{status}</div>
+          <ol>{moves}</ol>
         </div>
       </div>
     );
