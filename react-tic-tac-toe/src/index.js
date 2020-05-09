@@ -20,11 +20,24 @@ class Square extends React.Component {
 // Don't need to use "this.whatever" here, I guess? Also note that there
 // aren't any parens when setting the onClick method on LHS or RHS.
 function Square(props) {
+  let btnStyle = {};
+
+  if (props.winningSquare) {
+    btnStyle = {
+      fontWeight: "bold",
+      color: "red",
+    };
+  }
+
   return (
-    <button className="square" onClick={props.onClick}>
+    <button className="square" style={btnStyle} onClick={props.onClick}>
       {props.value}
     </button>
   );
+}
+
+function SetSortButton(props) {
+  return <button onClick={props.onClick}>{props.value}</button>;
 }
 
 class Board extends React.Component {
@@ -33,6 +46,11 @@ class Board extends React.Component {
       // The below is going to pass TWO values to Square's constructor.
       <Square
         value={this.props.squares[i]}
+        winningSquare={
+          this.props.winningSquares == null
+            ? false
+            : this.props.winningSquares.includes(i)
+        }
         onClick={() => this.props.onClick(i)}
       />
     );
@@ -75,6 +93,7 @@ class Game extends React.Component {
       ],
       stepNumber: 0,
       xIsNext: true,
+      sortHistoryAscending: true,
     };
   }
 
@@ -108,6 +127,7 @@ class Game extends React.Component {
       history: history.concat([
         {
           squares: squares,
+          indexOfSquareModified: i,
         },
       ]),
       stepNumber: history.length,
@@ -127,20 +147,55 @@ class Game extends React.Component {
     const current = history[this.state.stepNumber];
     const winner = calculateWinner(current.squares);
 
-    const moves = history.map((step, move) => {
-      const desc = move ? "Go to move #" + move : "Go to game start";
+    let moves = history.map((step, move) => {
+      let desc = move
+        ? "Go to move #" +
+          move +
+          ". Modified square index: " +
+          history[move].indexOfSquareModified
+        : "Go to game start";
+
+      let btnStyle = {};
+      if (move === this.state.stepNumber) {
+        btnStyle = {
+          fontWeight: "bold",
+        };
+      }
+
       return (
         <li key={move}>
-          <button onClick={() => this.jumpTo(move)}>{desc}</button>
+          <button style={btnStyle} onClick={() => this.jumpTo(move)}>
+            {desc}
+          </button>
         </li>
       );
     });
 
     let status;
     if (winner) {
-      status = "Winner: " + winner;
+      status = "Winner: " + current.squares[winner[0]];
     } else {
-      status = "Next player: " + (this.state.xIsNext ? "X" : "O");
+      if (history.length == 10) {
+        status = "NO ONE WON. ARE YOU HAPPY NOW?";
+      } else {
+        status = "Next player: " + (this.state.xIsNext ? "X" : "O");
+      }
+    }
+
+    let setSortButtonOnClick = () =>
+      this.setState({
+        sortHistoryAscending: !this.state.sortHistoryAscending,
+      });
+
+    let setSortButton = (
+      <SetSortButton
+        value={this.state.sortHistoryAscending ? "Ascending" : "Descending"}
+        onClick={setSortButtonOnClick}
+      ></SetSortButton>
+    );
+
+    if (!this.state.sortHistoryAscending) {
+      moves = moves.reverse();
     }
 
     return (
@@ -148,11 +203,13 @@ class Game extends React.Component {
         <div className="game-board">
           <Board
             squares={current.squares}
+            winningSquares={winner}
             onClick={(i) => this.handleClick(i)}
           />
         </div>
         <div className="game-info">
           <div>{status}</div>
+          <div>{setSortButton}</div>
           <ol>{moves}</ol>
         </div>
       </div>
@@ -180,7 +237,7 @@ function calculateWinner(squares) {
     // So - this is saying if A isn't null, and it's the same as b, and
     // it's the same as C, send back the winning O or X.
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return squares[a];
+      return lines[i];
     }
   }
   // No winner. Return nothing.
